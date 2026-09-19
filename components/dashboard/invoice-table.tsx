@@ -56,7 +56,7 @@ export function InvoiceTable({
             <TableHead>Total</TableHead>
             <TableHead>Collected</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Date</TableHead>
+            <TableHead>Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>

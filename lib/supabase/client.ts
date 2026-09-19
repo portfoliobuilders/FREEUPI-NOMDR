@@ -10,3 +10,13 @@ export function createSupabaseBrowserClient() {
   const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
   return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 }
+
+export function createClient() {
+  const client = createSupabaseBrowserClient();
+  if (!client) {
+    throw new Error(
+      "Supabase configuration missing. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    );
+  }
+  return client;
+}

@@ -12,6 +12,14 @@ import { PaymentGrid } from "@/components/payment/payment-grid";
 import { PaymentSummary } from "@/components/payment/payment-summary";
 import { ComplianceNotice } from "@/components/compliance/compliance-notice";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatINR, rupeesToPaise } from "@/lib/money";
 import { createPaymentPlan } from "@/lib/payments/create-payment-plan";
 import { validatePaymentPlan } from "@/lib/payments/validate-payment-plan";
@@ -21,6 +29,7 @@ import { withUpdatedPaymentStatus } from "@/lib/payments/invoice-status";
 import { createManualPaymentVerificationProvider } from "@/lib/payments/verification";
 import { dataUrlToBlob, downloadDataUrl, qrDataUrl } from "@/lib/qr/download";
 import { saveInvoiceToAccount } from "@/app/actions/invoices";
+import { getBrowserClient } from "@/lib/supabase/runtime-config";
 import type { PaymentFormValues } from "@/lib/payments/payment-form-schema";
 import type { Invoice, PaymentStatus } from "@/types";
 
@@ -29,6 +38,7 @@ const verifier = createManualPaymentVerificationProvider();
 export function HomeGenerator() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
   const router = useRouter();
 
   async function handleGenerate(values: PaymentFormValues) {
@@ -95,13 +105,21 @@ export function HomeGenerator() {
     if (!invoice) {
       return;
     }
+    const supabase = await getBrowserClient();
+    const user = supabase
+      ? (await supabase.auth.getUser()).data.user
+      : null;
+    if (!user) {
+      setSaveOpen(true);
+      return;
+    }
     setBusy(true);
     try {
       const result = await saveInvoiceToAccount(invoice);
       if (!result.ok) {
         toast.error(result.message);
         if (result.message.toLowerCase().includes("sign in")) {
-          router.push("/login?next=/");
+          setSaveOpen(true);
         }
         return;
       }
@@ -140,83 +158,108 @@ export function HomeGenerator() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="space-y-4"
-      >
-        <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
-            Collect payments with UPI.
-          </h1>
-          <p className="max-w-xl text-base leading-7 text-muted-foreground">
-            Create structured UPI payment requests for invoices, instalments and
-            partial payments.
-          </p>
-        </div>
-        <PaymentForm onGenerate={handleGenerate} isSubmitting={busy} />
-        <ComplianceNotice compact />
-      </motion.div>
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="space-y-4"
+        >
+          <div className="space-y-3">
+            <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+              Collect payments with UPI.
+            </h1>
+            <p className="max-w-xl text-base leading-7 text-muted-foreground">
+              Create structured UPI payment requests for invoices, instalments and
+              partial payments.
+            </p>
+          </div>
+          <PaymentForm onGenerate={handleGenerate} isSubmitting={busy} />
+          <ComplianceNotice compact />
+        </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.05 }}
-        className="space-y-4"
-      >
-        <PaymentSummary invoice={invoice} />
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.05 }}
+          className="space-y-4"
+        >
+          <PaymentSummary invoice={invoice} />
 
-        {invoice ? (
-          <div className="flex flex-wrap gap-2">
+          {invoice ? (
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/print/${invoice.id}`}
+                className={buttonVariants({ variant: "outline", className: "h-10" })}
+              >
+                <Printer className="size-4" />
+                Print All
+              </Link>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() => void handleDownloadZip()}
+                disabled={busy}
+              >
+                <Download className="size-4" />
+                Download all QR
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10"
+                onClick={() => void handleSave()}
+                disabled={busy}
+              >
+                <Save className="size-4" />
+                Save invoice
+              </Button>
+              <Link
+                href={`/invoice/${invoice.id}`}
+                className={buttonVariants({ className: "h-10" })}
+              >
+                View invoice
+              </Link>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border bg-white p-8 text-sm text-muted-foreground">
+              Generate QR codes to preview payment cards, amounts such as{" "}
+              <span className="font-medium text-foreground">{formatINR(8500_00)}</span>
+              , and shareable UPI links. Guest plans stay on this device until you
+              sign in to save them.
+            </div>
+          )}
+        </motion.div>
+      </div>
+
+      {invoice ? (
+        <PaymentGrid invoice={invoice} onStatusChange={handleStatusChange} />
+      ) : null}
+
+      <Dialog open={saveOpen} onOpenChange={(open) => setSaveOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save this invoice</DialogTitle>
+            <DialogDescription>
+              Sign in to save invoices. Guest payment plans stay on this device
+              until you log in or create an account.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
             <Link
-              href={`/print/${invoice.id}`}
+              href="/login?next=/"
               className={buttonVariants({ variant: "outline", className: "h-10" })}
             >
-              <Printer className="size-4" />
-              Print All
+              Log in
             </Link>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10"
-              onClick={() => void handleDownloadZip()}
-              disabled={busy}
-            >
-              <Download className="size-4" />
-              Download all QR
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10"
-              onClick={() => void handleSave()}
-              disabled={busy}
-            >
-              <Save className="size-4" />
-              Save invoice
-            </Button>
-            <Link
-              href={`/invoice/${invoice.id}`}
-              className={buttonVariants({ className: "h-10" })}
-            >
-              View invoice
+            <Link href="/signup" className={buttonVariants({ className: "h-10" })}>
+              Create account
             </Link>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border bg-white p-8 text-sm text-muted-foreground">
-            Generate QR codes to preview payment cards, amounts such as{" "}
-            <span className="font-medium text-foreground">{formatINR(8500_00)}</span>
-            , and shareable UPI links. Guest plans stay on this device until you
-            sign in to save them.
-          </div>
-        )}
-
-        {invoice ? (
-          <PaymentGrid invoice={invoice} onStatusChange={handleStatusChange} />
-        ) : null}
-      </motion.div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

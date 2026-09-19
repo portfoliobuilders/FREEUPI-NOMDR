@@ -151,15 +151,24 @@ export function SetupClient({
               </a>
             </p>
           </Step>
-          <Step n={4} title="Confirm API keys if login still fails">
-            <a
-              href={apiKeysUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
-              Open API keys
-            </a>
+          <Step n={4} title="Add API keys on Vercel if login still fails">
+            <p>
+              Project → Settings → Environment Variables. Add{" "}
+              <code className="rounded bg-muted px-1">NEXT_PUBLIC_SUPABASE_URL</code>,{" "}
+              <code className="rounded bg-muted px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>, and{" "}
+              <code className="rounded bg-muted px-1">NEXT_PUBLIC_SITE_URL</code> for
+              Production, Preview, and Development, then redeploy.
+            </p>
+            <p className="mt-2">
+              <a
+                href={apiKeysUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Open API keys
+              </a>
+            </p>
           </Step>
         </ol>
       )}

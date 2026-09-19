@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { authRateLimiter } from "@/lib/security/rate-limit";
-import { getPublicEnv } from "@/lib/env";
+import { getAuthUnavailableMessage } from "@/lib/env";
 import { sanitizePaymentText } from "@/lib/security/sanitize";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi/validate-upi-id";
 import { safeNextPath } from "@/lib/auth/safe-next";
+import { emailRedirectTo } from "@/lib/auth/email-redirect";
 import { publicWriteErrorMessage } from "@/lib/supabase/errors";
 
 const emailSchema = z.string().trim().email("Enter a valid email address.");
@@ -17,8 +18,7 @@ const passwordSchema = z
   .min(8, "Password must be at least 8 characters.");
 
 function authCallbackUrl(next?: string | null) {
-  const path = safeNextPath(next);
-  return `${getPublicEnv().siteUrl}/auth/callback?next=${encodeURIComponent(path)}`;
+  return emailRedirectTo(next);
 }
 
 async function limitAuth(action: string) {
@@ -46,7 +46,7 @@ export async function signInWithPassword(formData: FormData) {
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { error: "Authentication is not configured yet." };
+    return { error: getAuthUnavailableMessage() };
   }
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -79,7 +79,7 @@ export async function signUpWithPassword(formData: FormData) {
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { error: "Authentication is not configured yet." };
+    return { error: getAuthUnavailableMessage() };
   }
 
   const { error } = await supabase.auth.signUp({
@@ -98,7 +98,7 @@ export async function signUpWithPassword(formData: FormData) {
 
   return {
     error: null,
-    message: "Check your email to confirm the account, then sign in.",
+    message: "Check your email to confirm your account.",
   };
 }
 
@@ -115,7 +115,7 @@ export async function sendMagicLink(formData: FormData) {
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { error: "Authentication is not configured yet." };
+    return { error: getAuthUnavailableMessage() };
   }
 
   const { error } = await supabase.auth.signInWithOtp({
@@ -128,7 +128,7 @@ export async function sendMagicLink(formData: FormData) {
     return { error: "Could not send the magic link." };
   }
 
-  return { error: null, message: "Magic link sent. Check your email." };
+  return { error: null, message: "Magic link sent. Check your inbox." };
 }
 
 export async function signOut() {
@@ -142,7 +142,7 @@ export async function signOut() {
 export async function updateProfile(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { error: "Supabase is not configured." };
+    return { error: getAuthUnavailableMessage() };
   }
   const {
     data: { user },

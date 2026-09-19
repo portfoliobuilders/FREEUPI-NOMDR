@@ -18,7 +18,11 @@ const verifier = createManualPaymentVerificationProvider();
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return { supabase: null, user: null, error: "Supabase is not configured." };
+    return {
+      supabase: null,
+      user: null,
+      error: "Sign in to save invoices.",
+    };
   }
   const {
     data: { user },
