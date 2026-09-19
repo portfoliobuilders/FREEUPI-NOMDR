@@ -22,6 +22,7 @@ Place product captures in `docs/screenshots/` after a local run:
 - Manual payment status with a clear “Manually marked as paid” label
 - Optional Supabase auth (email + magic link) and invoice persistence
 - Dashboard analytics, invoice detail, calculator, compliance page
+- `/setup` checklist for the hosted Supabase schema and auth redirect URLs
 - Installable PWA with standalone display
 
 ## Architecture
@@ -78,6 +79,9 @@ This repo is wired to project `qjwatcktobybdmdwgymi`.
 3. Keep `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` server-only. Never prefix them with `NEXT_PUBLIC_`.
 4. Enable Email and Magic Link in Authentication.
 5. Set Site URL and redirect URLs to `{NEXT_PUBLIC_SITE_URL}/auth/callback`.
+6. Apply the database schema (tables are not created until this step).
+
+Easiest path for schema + auth URLs: open `/setup` in the app. It checks the hosted project, copies `supabase/migrations/0001_init.sql`, and links to the SQL editor and auth URL settings.
 
 Dashboard shortcuts:
 
@@ -90,10 +94,14 @@ CLI (from this repo):
 ```bash
 npx supabase login
 npx supabase link --project-ref qjwatcktobybdmdwgymi
-npx supabase db push
+npm run schema:push
 ```
 
-Cursor MCP is configured in `.cursor/mcp.json` for this project ref. If the agent cannot see the project, add the Cursor/Supabase account as a project member, then run `agent mcp login supabase`.
+`npm run schema:push` uses `SUPABASE_ACCESS_TOKEN` or `DATABASE_URL`. GitHub Actions workflow **Apply Supabase schema** does the same when the `SUPABASE_ACCESS_TOKEN` repository secret is set.
+
+Cursor MCP is configured in `.cursor/mcp.json` for this project ref. If the agent cannot see the project, add that Cursor/Supabase account as a project member, then run `agent mcp login supabase`.
+
+Health check: `GET /api/health` reports whether Auth is reachable and whether the invoice tables exist.
 
 ## Environment setup
 

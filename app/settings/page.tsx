@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
+import {
+  isMissingSchemaError,
+  SCHEMA_SETUP_MESSAGE,
+} from "@/lib/supabase/errors";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -29,7 +33,7 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("business_name, upi_id")
     .eq("user_id", user.id)
@@ -41,6 +45,9 @@ export default async function SettingsPage() {
         email={user.email ?? ""}
         businessName={profile?.business_name ?? ""}
         upiId={profile?.upi_id ?? ""}
+        schemaWarning={
+          isMissingSchemaError(error) ? SCHEMA_SETUP_MESSAGE : null
+        }
       />
     </div>
   );

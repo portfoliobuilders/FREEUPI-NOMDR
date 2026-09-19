@@ -23,6 +23,16 @@ export function SignupForm() {
     <div className="space-y-8">
       <form action={action} className="space-y-4">
         <div className="space-y-2">
+          <Label htmlFor="businessName">Business name (optional)</Label>
+          <Input
+            id="businessName"
+            name="businessName"
+            autoComplete="organization"
+            className="h-11"
+            placeholder="Priya Stores"
+          />
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { signOut, updateProfile } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -19,10 +20,12 @@ export function SettingsForm({
   businessName,
   upiId,
   email,
+  schemaWarning,
 }: {
   businessName: string;
   upiId: string;
   email: string;
+  schemaWarning?: string | null;
 }) {
   const [state, action, pending] = useActionState(
     async (_state: State, formData: FormData) => updateProfile(formData),
@@ -31,6 +34,14 @@ export function SettingsForm({
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
+      {schemaWarning ? (
+        <p className="text-sm text-destructive">
+          {schemaWarning}{" "}
+          <Link href="/setup" className="font-medium underline-offset-4 hover:underline">
+            Open setup
+          </Link>
+        </p>
+      ) : null}
       <Card className="border-border bg-white shadow-none ring-1 ring-border">
         <CardHeader>
           <CardTitle>Settings</CardTitle>

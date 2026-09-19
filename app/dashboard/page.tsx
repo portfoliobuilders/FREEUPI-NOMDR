@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
-import { listCloudInvoices } from "@/app/actions/invoices";
+import { getCloudDashboard } from "@/app/actions/invoices";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -14,13 +14,16 @@ export default async function DashboardPage() {
   } = supabase
     ? await supabase.auth.getUser()
     : { data: { user: null } };
-  const cloudInvoices = user ? await listCloudInvoices() : [];
+  const dashboard = user
+    ? await getCloudDashboard()
+    : { invoices: [], warning: null, schemaReady: true };
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <DashboardClient
-        cloudInvoices={cloudInvoices}
+        cloudInvoices={dashboard.invoices}
         isAuthenticated={Boolean(user)}
+        schemaWarning={dashboard.warning}
       />
     </div>
   );

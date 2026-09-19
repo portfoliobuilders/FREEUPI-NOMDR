@@ -67,9 +67,11 @@ export interface PaymentVerificationProvider {
   verifyPayment(input: {
     paymentId: string;
     invoiceId: string;
+    status?: PaymentStatus;
   }): Promise<PaymentVerificationResult>;
   getPaymentStatus(input: {
     paymentId: string;
     invoiceId: string;
+    currentStatus?: PaymentStatus;
   }): Promise<PaymentVerificationResult>;
 }
