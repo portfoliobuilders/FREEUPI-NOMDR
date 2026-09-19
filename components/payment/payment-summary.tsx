@@ -17,7 +17,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { PAYMENT_DETAILS_FORM_ID } from "@/components/payment/payment-form";
+import {
+  PAYMENT_DETAILS_FORM_ID,
+  generateQrCodesLabel,
+} from "@/components/payment/payment-form";
 import type { PaymentPlan } from "@/lib/payments/create-payment-plan";
 import type { PaymentStructure } from "@/lib/payments/payment-form-schema";
 import type { Invoice } from "@/types";
@@ -184,9 +187,7 @@ export function PaymentSummary({
             ) : (
               <QrCode className="size-4" />
             )}
-            {paymentCount > 0
-              ? `Generate ${paymentCount} QR Codes`
-              : "Generate QR Codes"}
+            {generateQrCodesLabel(paymentCount)}
           </Button>
         )}
       </CardContent>

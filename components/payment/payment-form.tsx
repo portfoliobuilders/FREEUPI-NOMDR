@@ -34,6 +34,15 @@ import { isValidUpiId } from "@/lib/upi/validate-upi-id";
 
 export const PAYMENT_DETAILS_FORM_ID = "payment-details-form";
 
+export function generateQrCodesLabel(count: number): string {
+  if (count <= 0) {
+    return "Generate QR Codes";
+  }
+  return count === 1
+    ? "Generate 1 QR Code"
+    : `Generate ${count} QR Codes`;
+}
+
 export interface PaymentPlanPreviewState {
   plan: PaymentPlan | null;
   maxPaymentPaise: number;
@@ -475,7 +484,7 @@ export function PaymentForm({
                 <QrCode className="size-4" />
               )}
               {preview && preview.amountsPaise.length > 0
-                ? `Generate ${preview.amountsPaise.length} QR Codes`
+                ? generateQrCodesLabel(preview.amountsPaise.length)
                 : "Generate QR Codes"}
             </Button>
             {!canGenerate ? (
