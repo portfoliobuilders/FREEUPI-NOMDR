@@ -3,6 +3,7 @@ import {
   MIN_PAYMENT_PAISE,
   sumPaise,
 } from "@/lib/money";
+import { createAutoSplit } from "@/lib/payments/create-auto-split";
 import type { PaymentStructure } from "@/lib/payments/payment-form-schema";
 
 export class PaymentPlanError extends Error {
@@ -15,7 +16,7 @@ export class PaymentPlanError extends Error {
 export interface CreatePaymentPlanInput {
   totalAmountPaise: number;
   structure: PaymentStructure;
-  instalmentCount?: number;
+  maxPaymentPaise?: number;
   customAmountsPaise?: number[];
 }
 
@@ -25,37 +26,7 @@ export interface PaymentPlan {
   amountsPaise: number[];
   allocatedPaise: number;
   remainingPaise: number;
-}
-
-export function splitEqualInstalments(
-  totalAmountPaise: number,
-  instalmentCount: number,
-): number[] {
-  if (
-    !Number.isSafeInteger(totalAmountPaise) ||
-    totalAmountPaise < MIN_PAYMENT_PAISE
-  ) {
-    throw new PaymentPlanError("Enter a valid invoice amount.");
-  }
-  if (
-    !Number.isSafeInteger(instalmentCount) ||
-    instalmentCount < 2 ||
-    instalmentCount > 48
-  ) {
-    throw new PaymentPlanError("Choose between 2 and 48 instalments.");
-  }
-  if (totalAmountPaise < instalmentCount) {
-    throw new PaymentPlanError(
-      "Each instalment must be at least ₹0.01. Reduce the number of payments.",
-    );
-  }
-
-  const base = Math.floor(totalAmountPaise / instalmentCount);
-  const remainder = totalAmountPaise % instalmentCount;
-
-  return Array.from({ length: instalmentCount }, (_, index) =>
-    index === instalmentCount - 1 ? base + remainder : base,
-  );
+  maxPaymentPaise?: number;
 }
 
 export function createPaymentPlan(input: CreatePaymentPlanInput): PaymentPlan {
@@ -70,14 +41,22 @@ export function createPaymentPlan(input: CreatePaymentPlanInput): PaymentPlan {
   }
 
   let amountsPaise: number[] = [];
+  let maxPaymentPaise: number | undefined;
 
   if (structure === "single") {
     amountsPaise = [totalAmountPaise];
-  } else if (structure === "equal") {
-    amountsPaise = splitEqualInstalments(
-      totalAmountPaise,
-      input.instalmentCount ?? 0,
-    );
+  } else if (structure === "auto") {
+    const selectedMax = input.maxPaymentPaise ?? 0;
+    try {
+      amountsPaise = createAutoSplit(totalAmountPaise, selectedMax);
+    } catch (error) {
+      throw new PaymentPlanError(
+        error instanceof Error
+          ? error.message
+          : "Enter a valid maximum amount per payment.",
+      );
+    }
+    maxPaymentPaise = selectedMax;
   } else {
     amountsPaise = (input.customAmountsPaise ?? []).map((amount) => {
       if (!Number.isSafeInteger(amount) || amount <= 0) {
@@ -88,6 +67,13 @@ export function createPaymentPlan(input: CreatePaymentPlanInput): PaymentPlan {
     if (amountsPaise.length < 1) {
       throw new PaymentPlanError("Add at least one custom payment.");
     }
+    if (
+      input.maxPaymentPaise &&
+      Number.isSafeInteger(input.maxPaymentPaise) &&
+      input.maxPaymentPaise > 0
+    ) {
+      maxPaymentPaise = input.maxPaymentPaise;
+    }
   }
 
   const allocatedPaise = sumPaise(amountsPaise);
@@ -97,5 +83,6 @@ export function createPaymentPlan(input: CreatePaymentPlanInput): PaymentPlan {
     amountsPaise,
     allocatedPaise,
     remainingPaise: totalAmountPaise - allocatedPaise,
+    maxPaymentPaise,
   };
 }

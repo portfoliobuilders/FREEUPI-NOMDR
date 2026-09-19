@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, QrCode } from "lucide-react";
@@ -19,9 +19,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { PaymentPlanEditor } from "@/components/payment/payment-plan-editor";
 import { formatINR, rupeesToPaise } from "@/lib/money";
+import { DEFAULT_MAX_PAYMENT_RUPEES } from "@/lib/payments/create-auto-split";
 import {
   createPaymentPlan,
-  splitEqualInstalments,
+  type PaymentPlan,
 } from "@/lib/payments/create-payment-plan";
 import {
   paymentFormSchema,
@@ -31,31 +32,43 @@ import {
 import { isFullyAllocated } from "@/lib/payments/validate-payment-plan";
 import { isValidUpiId } from "@/lib/upi/validate-upi-id";
 
+export const PAYMENT_DETAILS_FORM_ID = "payment-details-form";
+
+export interface PaymentPlanPreviewState {
+  plan: PaymentPlan | null;
+  maxPaymentPaise: number;
+  canGenerate: boolean;
+}
+
 const STRUCTURE_OPTIONS: {
   value: PaymentStructure;
   title: string;
   description: string;
+  secondary?: boolean;
 }[] = [
   {
-    value: "single",
-    title: "Single Payment",
-    description: "One QR for the full invoice amount.",
-  },
-  {
-    value: "equal",
-    title: "Equal Split",
-    description: "Divide evenly. Any leftover paise go on the last payment.",
+    value: "auto",
+    title: "Auto Split",
+    description:
+      "Automatically create multiple QR payments based on your maximum amount per payment.",
   },
   {
     value: "custom",
     title: "Custom Split",
-    description: "Enter each instalment. The parts must add up to the total.",
+    description: "Manually enter each amount. The parts must add up to the total.",
+  },
+  {
+    value: "single",
+    title: "Single Payment",
+    description: "Create one QR code for the full amount.",
+    secondary: true,
   },
 ];
 
 function parsePaise(value: string): number {
   try {
-    return rupeesToPaise(value || "0");
+    const paise = rupeesToPaise(value || "0");
+    return paise > 0 ? paise : 0;
   } catch {
     return 0;
   }
@@ -63,9 +76,11 @@ function parsePaise(value: string): number {
 
 export function PaymentForm({
   onGenerate,
+  onPlanChange,
   isSubmitting = false,
 }: {
   onGenerate: (values: PaymentFormValues) => void | Promise<void>;
+  onPlanChange?: (state: PaymentPlanPreviewState) => void;
   isSubmitting?: boolean;
 }) {
   const form = useForm<PaymentFormValues>({
@@ -77,8 +92,8 @@ export function PaymentForm({
       totalAmountRupees: "",
       reference: "",
       note: "",
-      structure: "single",
-      instalmentCount: 4,
+      structure: "auto",
+      maxPaymentRupees: DEFAULT_MAX_PAYMENT_RUPEES,
       customPayments: [{ amount: "" }, { amount: "" }],
     },
   });
@@ -91,9 +106,9 @@ export function PaymentForm({
     control: form.control,
     name: "totalAmountRupees",
   });
-  const instalmentCount = useWatch({
+  const maxPaymentRupees = useWatch({
     control: form.control,
-    name: "instalmentCount",
+    name: "maxPaymentRupees",
   });
   const customPayments = useWatch({
     control: form.control,
@@ -101,32 +116,43 @@ export function PaymentForm({
   });
 
   const totalPaise = parsePaise(totalAmountRupees ?? "");
+  const maxPaymentPaise = parsePaise(maxPaymentRupees ?? "");
+
   const preview = useMemo(() => {
     try {
-      if (structure === "equal") {
-        const count = Number(instalmentCount || 0);
-        if (count < 2 || totalPaise < count) {
+      if (totalPaise <= 0) {
+        return null;
+      }
+      if (structure === "auto") {
+        if (maxPaymentPaise <= 0) {
           return null;
         }
-        const amounts = splitEqualInstalments(totalPaise, count);
         return createPaymentPlan({
           totalAmountPaise: totalPaise,
-          structure,
-          instalmentCount: count,
-          customAmountsPaise: amounts,
+          structure: "auto",
+          maxPaymentPaise,
         });
       }
       if (structure === "custom") {
+        const customAmountsPaise = (customPayments ?? [])
+          .map((row) => parsePaise(row.amount))
+          .filter((amount) => amount > 0);
+        if (customAmountsPaise.length === 0) {
+          return {
+            structure: "custom" as const,
+            totalAmountPaise: totalPaise,
+            amountsPaise: [],
+            allocatedPaise: 0,
+            remainingPaise: totalPaise,
+            maxPaymentPaise: maxPaymentPaise > 0 ? maxPaymentPaise : undefined,
+          };
+        }
         return createPaymentPlan({
           totalAmountPaise: totalPaise,
           structure,
-          customAmountsPaise: (customPayments ?? []).map((row) =>
-            parsePaise(row.amount),
-          ),
+          maxPaymentPaise: maxPaymentPaise > 0 ? maxPaymentPaise : undefined,
+          customAmountsPaise,
         });
-      }
-      if (totalPaise <= 0) {
-        return null;
       }
       return createPaymentPlan({
         totalAmountPaise: totalPaise,
@@ -135,7 +161,7 @@ export function PaymentForm({
     } catch {
       return null;
     }
-  }, [structure, totalPaise, instalmentCount, customPayments]);
+  }, [structure, totalPaise, maxPaymentPaise, customPayments]);
 
   const customValid =
     structure !== "custom" ||
@@ -144,14 +170,29 @@ export function PaymentForm({
       (customPayments ?? []).map((row) => parsePaise(row.amount)),
     );
 
+  const autoValid =
+    structure !== "auto" ||
+    (maxPaymentPaise > 0 &&
+      preview !== null &&
+      preview.remainingPaise === 0 &&
+      preview.amountsPaise.length > 0);
+
   const canGenerate =
     (merchantName ?? "").trim().length >= 2 &&
     isValidUpiId(upiId ?? "") &&
     totalPaise > 0 &&
     (reference ?? "").trim().length >= 1 &&
     customValid &&
-    (structure !== "equal" || Number(instalmentCount) >= 2) &&
+    autoValid &&
     !isSubmitting;
+
+  useEffect(() => {
+    onPlanChange?.({
+      plan: preview,
+      maxPaymentPaise,
+      canGenerate,
+    });
+  }, [preview, maxPaymentPaise, canGenerate, onPlanChange]);
 
   return (
     <FormProvider {...form}>
@@ -165,6 +206,7 @@ export function PaymentForm({
         </CardHeader>
         <CardContent>
           <form
+            id={PAYMENT_DETAILS_FORM_ID}
             className="space-y-5"
             onSubmit={form.handleSubmit(
               (values) => void onGenerate(values),
@@ -242,7 +284,7 @@ export function PaymentForm({
                       id="totalAmountRupees"
                       className="h-11 pl-7"
                       inputMode="decimal"
-                      placeholder="8500.00"
+                      placeholder="8500"
                       value={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
@@ -310,32 +352,102 @@ export function PaymentForm({
                     {STRUCTURE_OPTIONS.map((option) => {
                       const selected = field.value === option.value;
                       return (
-                        <label
+                        <div
                           key={option.value}
                           className={cn(
-                            "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
+                            "rounded-xl border transition-colors",
                             selected
                               ? "border-primary bg-accent"
-                              : "border-border bg-white hover:bg-muted/40",
+                              : option.secondary
+                                ? "border-dashed border-border bg-muted/30 hover:bg-muted/50"
+                                : "border-border bg-white hover:bg-muted/40",
                           )}
                         >
-                          <input
-                            type="radio"
-                            name={field.name}
-                            value={option.value}
-                            checked={selected}
-                            onChange={() => field.onChange(option.value)}
-                            className="mt-1 size-4 accent-primary"
-                          />
-                          <span>
-                            <span className="block text-sm font-medium">
-                              {option.title}
+                          <label className="flex cursor-pointer items-start gap-3 p-3">
+                            <input
+                              type="radio"
+                              name={field.name}
+                              value={option.value}
+                              checked={selected}
+                              onChange={() => field.onChange(option.value)}
+                              className="mt-1 size-4 accent-primary"
+                            />
+                            <span>
+                              <span className="block text-sm font-medium">
+                                {option.title}
+                              </span>
+                              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                                {option.description}
+                              </span>
                             </span>
-                            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                              {option.description}
-                            </span>
-                          </span>
-                        </label>
+                          </label>
+
+                          {option.value === "auto" && selected ? (
+                            <div className="space-y-3 border-t border-primary/15 px-3 pt-3 pb-3">
+                              <Field
+                                id="maxPaymentRupees"
+                                label="Maximum amount per payment"
+                                error={
+                                  form.formState.errors.maxPaymentRupees?.message
+                                }
+                              >
+                                <div className="relative">
+                                  <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                                    ₹
+                                  </span>
+                                  <Controller
+                                    control={form.control}
+                                    name="maxPaymentRupees"
+                                    render={({ field: maxField }) => (
+                                      <Input
+                                        id="maxPaymentRupees"
+                                        className="h-11 pl-7"
+                                        inputMode="decimal"
+                                        placeholder="1999"
+                                        value={maxField.value ?? ""}
+                                        onChange={maxField.onChange}
+                                        onBlur={maxField.onBlur}
+                                        name={maxField.name}
+                                        ref={maxField.ref}
+                                      />
+                                    )}
+                                  />
+                                </div>
+                              </Field>
+                              <p className="text-xs leading-5 text-muted-foreground">
+                                FREEUPI will create multiple payment requests so
+                                that no individual request exceeds your selected
+                                maximum.
+                              </p>
+                              {preview ? (
+                                <div className="space-y-2 rounded-xl border border-border bg-white/80 p-3 text-sm">
+                                  <p className="font-medium">
+                                    {preview.amountsPaise.length} QR{" "}
+                                    {preview.amountsPaise.length === 1
+                                      ? "code"
+                                      : "codes"}{" "}
+                                    will be generated
+                                  </p>
+                                  <ol className="grid gap-1.5">
+                                    {preview.amountsPaise.map((amount, index) => (
+                                      <li
+                                        key={`${amount}-${index}`}
+                                        className="flex items-center justify-between"
+                                      >
+                                        <span className="text-muted-foreground">
+                                          Payment {index + 1}
+                                        </span>
+                                        <span className="font-medium tabular-nums">
+                                          {formatINR(amount)}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                       );
                     })}
                   </div>
@@ -343,60 +455,11 @@ export function PaymentForm({
               />
             </fieldset>
 
-            {structure === "equal" ? (
-              <div className="space-y-3">
-                <Field
-                  id="instalmentCount"
-                  label="Number of instalments"
-                  error={form.formState.errors.instalmentCount?.message}
-                >
-                  <Controller
-                    control={form.control}
-                    name="instalmentCount"
-                    render={({ field }) => (
-                      <Input
-                        id="instalmentCount"
-                        className="h-11"
-                        type="number"
-                        min={2}
-                        max={48}
-                        value={field.value ?? ""}
-                        onChange={(event) =>
-                          field.onChange(
-                            event.target.value === ""
-                              ? undefined
-                              : Number(event.target.value),
-                          )
-                        }
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        ref={field.ref}
-                      />
-                    )}
-                  />
-                </Field>
-                {preview ? (
-                  <ol className="grid gap-2 rounded-xl border border-border bg-muted/50 p-3 text-sm">
-                    {preview.amountsPaise.map((amount, index) => (
-                      <li
-                        key={`${amount}-${index}`}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="text-muted-foreground">
-                          Payment {index + 1}
-                        </span>
-                        <span className="font-medium tabular-nums">
-                          {formatINR(amount)}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : null}
-              </div>
-            ) : null}
-
             {structure === "custom" ? (
-              <PaymentPlanEditor totalAmountPaise={totalPaise} />
+              <PaymentPlanEditor
+                totalAmountPaise={totalPaise}
+                maxPaymentPaise={maxPaymentPaise}
+              />
             ) : null}
 
             <Button
@@ -411,7 +474,9 @@ export function PaymentForm({
               ) : (
                 <QrCode className="size-4" />
               )}
-              Generate QR Codes
+              {preview && preview.amountsPaise.length > 0
+                ? `Generate ${preview.amountsPaise.length} QR Codes`
+                : "Generate QR Codes"}
             </Button>
             {!canGenerate ? (
               <p className="text-center text-xs text-muted-foreground">

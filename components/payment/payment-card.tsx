@@ -75,7 +75,9 @@ export function PaymentCard({
             <p className="text-sm font-semibold">
               Payment {payment.sequenceNumber} of {total}
             </p>
-            <p className="text-xs text-muted-foreground">{invoice.reference}</p>
+            <p className="text-xs text-muted-foreground">
+              {invoice.reference}-{payment.sequenceNumber}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <PaymentStatusBadge status={payment.status} />
@@ -138,7 +140,9 @@ export function PaymentCard({
           </p>
           <p className="text-sm font-medium">{invoice.merchantName}</p>
           <p className="text-sm text-muted-foreground break-all">{invoice.upiId}</p>
-          <p className="text-xs text-muted-foreground">{invoice.reference}</p>
+          <p className="text-xs text-muted-foreground">
+            {invoice.reference}-{payment.sequenceNumber}
+          </p>
         </div>
 
         <div className="grid gap-2">

@@ -11,7 +11,7 @@ export function PaymentGrid({
   onStatusChange?: (paymentId: string, status: PaymentStatus) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4">
       {invoice.payments.map((payment) => (
         <PaymentCard
           key={payment.id}

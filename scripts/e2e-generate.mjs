@@ -19,12 +19,14 @@ try {
   await page.goto(`${origin}/`, { waitUntil: "networkidle" });
   await page.getByLabel("Merchant / Account Holder Name").fill("Priya Stores");
   await page.getByLabel("UPI ID").fill("merchant@oksbi");
-  await page.getByLabel("Total Amount").fill("10000");
+  await page.getByLabel("Total Amount").fill("8500");
   await page.getByLabel("Invoice / Payment Reference").fill("INV-2048");
   await page.getByLabel("Payment Note").fill("Workshop deposit");
-  await page.getByRole("radio", { name: /Equal Split/i }).click();
-  await page.getByRole("button", { name: "Generate QR Codes" }).click();
-  await page.getByText("₹2,500.00").first().waitFor();
+  await page.getByRole("radio", { name: /Auto Split/i }).click();
+  await page.getByLabel("Maximum amount per payment").fill("1999");
+  await page.getByRole("button", { name: /Generate 5 QR Codes/i }).first().click();
+  await page.getByText("₹1,999.00").first().waitFor();
+  await page.getByText("₹504.00").first().waitFor();
   await page.getByRole("button", { name: "Copy Payment Link" }).first().click();
   await page.getByText("Payment link copied").waitFor();
   await page.getByRole("button", { name: "More payment actions" }).first().click();
