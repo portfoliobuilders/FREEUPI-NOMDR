@@ -18,8 +18,10 @@ function safePaise(value: string): number {
 
 export function PaymentPlanEditor({
   totalAmountPaise,
+  maxPaymentPaise = 0,
 }: {
   totalAmountPaise: number;
+  maxPaymentPaise?: number;
 }) {
   const { control, watch } = useFormContext<PaymentFormValues>();
   const { fields, append, remove } = useFieldArray({
@@ -50,29 +52,44 @@ export function PaymentPlanEditor({
           <div key={field.id} className="grid grid-cols-[1fr_auto] gap-2">
             <div className="space-y-1.5">
               <Label htmlFor={`custom-amount-${index}`}>Payment {index + 1}</Label>
-              <div className="relative">
-                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
-                  ₹
-                </span>
-                <Controller
-                  control={control}
-                  name={`customPayments.${index}.amount`}
-                  render={({ field: amountField }) => (
-                    <Input
-                      id={`custom-amount-${index}`}
-                      inputMode="decimal"
-                      className="h-11 pl-7"
-                      placeholder="0.00"
-                      aria-label={`Payment ${index + 1} amount`}
-                      value={amountField.value}
-                      onChange={amountField.onChange}
-                      onBlur={amountField.onBlur}
-                      name={amountField.name}
-                      ref={amountField.ref}
-                    />
-                  )}
-                />
-              </div>
+              <Controller
+                control={control}
+                name={`customPayments.${index}.amount`}
+                render={({ field: amountField }) => {
+                  const amountPaise = safePaise(amountField.value ?? "");
+                  const exceedsMax =
+                    maxPaymentPaise > 0 &&
+                    amountPaise > 0 &&
+                    amountPaise > maxPaymentPaise;
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                          ₹
+                        </span>
+                        <Input
+                          id={`custom-amount-${index}`}
+                          inputMode="decimal"
+                          className="h-11 pl-7"
+                          placeholder="1500"
+                          aria-label={`Payment ${index + 1} amount`}
+                          aria-invalid={exceedsMax || undefined}
+                          value={amountField.value}
+                          onChange={amountField.onChange}
+                          onBlur={amountField.onBlur}
+                          name={amountField.name}
+                          ref={amountField.ref}
+                        />
+                      </div>
+                      {exceedsMax ? (
+                        <p className="text-xs text-warning" role="status">
+                          This payment exceeds your configured maximum amount.
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                }}
+              />
             </div>
             <Button
               type="button"

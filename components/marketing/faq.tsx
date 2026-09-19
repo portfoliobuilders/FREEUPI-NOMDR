@@ -17,9 +17,9 @@ const faqs = [
       "No. FREEUPI never asks for a UPI PIN, OTP, CVV, card number, or internet banking password.",
   },
   {
-    question: "Can I create instalment payments?",
+    question: "Can I create staged or instalment payments?",
     answer:
-      "Yes. You can create a single payment, equal instalments, or a custom schedule. Remainders on equal splits are placed on the final payment. You are responsible for using this only for legitimate payment schedules.",
+      "Yes. Auto Split creates multiple payment requests from a merchant-selected maximum amount per QR. You can also enter a custom schedule or keep a single payment for the full amount. You are responsible for using this only for legitimate payment schedules.",
   },
   {
     question: "Are payments automatically verified?",

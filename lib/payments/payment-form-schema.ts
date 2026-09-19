@@ -2,8 +2,16 @@ import { z } from "zod";
 import { isValidUpiId } from "@/lib/upi/validate-upi-id";
 import { rupeesToPaise } from "@/lib/money";
 
-export const PAYMENT_STRUCTURES = ["single", "equal", "custom"] as const;
+export const PAYMENT_STRUCTURES = ["auto", "custom", "single"] as const;
 export type PaymentStructure = (typeof PAYMENT_STRUCTURES)[number];
+
+function isPositiveRupeeAmount(value: string): boolean {
+  try {
+    return rupeesToPaise(value) > 0;
+  } catch {
+    return false;
+  }
+}
 
 export const paymentFormSchema = z
   .object({
@@ -21,13 +29,10 @@ export const paymentFormSchema = z
       .string()
       .trim()
       .min(1, "Enter the invoice amount.")
-      .refine((value) => {
-        try {
-          return rupeesToPaise(value) > 0;
-        } catch {
-          return false;
-        }
-      }, "Enter a valid amount greater than zero."),
+      .refine(
+        isPositiveRupeeAmount,
+        "Enter a valid amount greater than zero.",
+      ),
     reference: z
       .string()
       .trim()
@@ -35,7 +40,7 @@ export const paymentFormSchema = z
       .max(35, "Reference must be 35 characters or fewer."),
     note: z.string().max(50, "Payment note must be 50 characters or fewer."),
     structure: z.enum(PAYMENT_STRUCTURES),
-    instalmentCount: z.coerce.number().int().min(2).max(48).optional(),
+    maxPaymentRupees: z.string().optional(),
     customPayments: z
       .array(
         z.object({
@@ -45,12 +50,13 @@ export const paymentFormSchema = z
       .optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.structure === "equal") {
-      if (!value.instalmentCount) {
+    if (value.structure === "auto") {
+      const max = (value.maxPaymentRupees ?? "").trim();
+      if (!max || !isPositiveRupeeAmount(max)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["instalmentCount"],
-          message: "Enter the number of instalments.",
+          path: ["maxPaymentRupees"],
+          message: "Enter a valid maximum amount per payment.",
         });
       }
     }

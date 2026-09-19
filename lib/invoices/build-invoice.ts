@@ -34,9 +34,7 @@ export function buildInvoice(input: BuildInvoiceInput): Invoice {
     (amountPaise, index) => {
       const sequenceNumber = index + 1;
       const paymentId = createId();
-      const paymentNote = note
-        ? `${note} (${sequenceNumber}/${input.plan.amountsPaise.length})`
-        : `Payment ${sequenceNumber} of ${input.plan.amountsPaise.length}`;
+      const paymentNote = note || reference;
       const paymentReference = `${reference}-${sequenceNumber}`;
 
       return {

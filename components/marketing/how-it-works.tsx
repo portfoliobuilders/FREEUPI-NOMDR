@@ -13,7 +13,7 @@ const steps = [
   },
   {
     title: "Create your payment plan",
-    body: "Choose a single payment, equal instalments, or custom amounts.",
+    body: "Auto Split creates multiple QR payments from your maximum amount per request, or choose a custom split or a single payment.",
     icon: ListChecks,
   },
   {

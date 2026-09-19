@@ -1,17 +1,28 @@
 import { describe, expect, it } from "vitest";
-import {
-  createPaymentPlan,
-  splitEqualInstalments,
-} from "@/lib/payments/create-payment-plan";
+import { createAutoSplit } from "@/lib/payments/create-auto-split";
+import { createPaymentPlan } from "@/lib/payments/create-payment-plan";
 import { validatePaymentPlan } from "@/lib/payments/validate-payment-plan";
 
 describe("payment plans", () => {
-  it("places remainder on the final equal instalment", () => {
-    expect(splitEqualInstalments(1001, 4)).toEqual([250, 250, 250, 251]);
-    expect(splitEqualInstalments(250_000, 2)).toEqual([125000, 125000]);
-    expect(splitEqualInstalments(1_000_000, 4)).toEqual([
-      250000, 250000, 250000, 250000,
-    ]);
+  it("builds an auto split from the merchant-selected maximum", () => {
+    const plan = createPaymentPlan({
+      totalAmountPaise: 850_000,
+      structure: "auto",
+      maxPaymentPaise: 199_900,
+    });
+    expect(plan.amountsPaise).toEqual(createAutoSplit(850_000, 199_900));
+    expect(validatePaymentPlan(plan).valid).toBe(true);
+    expect(plan.remainingPaise).toBe(0);
+  });
+
+  it("does not apply the auto-split maximum in single payment mode", () => {
+    const plan = createPaymentPlan({
+      totalAmountPaise: 850_000,
+      structure: "single",
+      maxPaymentPaise: 199_900,
+    });
+    expect(plan.amountsPaise).toEqual([850_000]);
+    expect(validatePaymentPlan(plan).valid).toBe(true);
   });
 
   it("accepts a user-authored custom plan that sums to the total", () => {

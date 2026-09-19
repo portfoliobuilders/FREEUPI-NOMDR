@@ -16,7 +16,7 @@ Place product captures in `docs/screenshots/` after a local run:
 ## Features
 
 - Guest QR generation with local drafts (no account required)
-- Single payment, equal split, and custom payment plans
+- Auto split, custom split, and single-payment plans
 - Integer paise math (no floating-point money)
 - Standard UPI URI + high-resolution QR download and print
 - Manual payment status with a clear “Manually marked as paid” label
