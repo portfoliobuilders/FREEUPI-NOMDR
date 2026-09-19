@@ -1,7 +1,8 @@
 "use client";
 
-import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { QR_DISPLAY_SIZE } from "@/lib/qr/constants";
 
 interface PaymentQrProps {
   value: string;
@@ -12,10 +13,36 @@ interface PaymentQrProps {
 
 export function PaymentQr({
   value,
-  size = 220,
+  size = QR_DISPLAY_SIZE,
   label,
   className,
 }: PaymentQrProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !value) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let qr: { clear: () => void } | null = null;
+
+    void import("@/lib/qr/qrcode-engine").then(({ renderQrCode }) => {
+      if (cancelled || !hostRef.current) {
+        return;
+      }
+      qr = renderQrCode(hostRef.current, value, size);
+      hostRef.current.setAttribute("title", label);
+    });
+
+    return () => {
+      cancelled = true;
+      qr?.clear();
+      host.replaceChildren();
+    };
+  }, [value, size, label]);
+
   return (
     <div
       className={cn(
@@ -23,17 +50,11 @@ export function PaymentQr({
         className,
       )}
     >
-      <QRCodeSVG
-        value={value}
-        size={size}
-        level="M"
-        marginSize={2}
-        bgColor="#FFFFFF"
-        fgColor="#16181D"
-        title={label}
+      <div
+        ref={hostRef}
         role="img"
         aria-label={label}
-        className="h-auto w-full max-w-[240px]"
+        className="aspect-square w-full max-w-[240px] [&_canvas]:h-auto [&_canvas]:w-full [&_img]:h-auto [&_img]:w-full"
       />
     </div>
   );

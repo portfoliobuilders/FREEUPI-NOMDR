@@ -1,18 +1,26 @@
-import QRCode from "qrcode";
-
 export async function qrDataUrl(
   value: string,
   size = 1024,
 ): Promise<string> {
-  return QRCode.toDataURL(value, {
-    errorCorrectionLevel: "M",
-    margin: 2,
-    width: size,
-    color: {
-      dark: "#16181D",
-      light: "#FFFFFF",
-    },
-  });
+  if (typeof document === "undefined") {
+    throw new Error("QR generation requires a browser.");
+  }
+
+  const { QR_EXPORT_PADDING, canvasToPaddedDataUrl, readQrCanvas, renderQrCode } =
+    await import("@/lib/qr/qrcode-engine");
+
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-9999px";
+  host.style.top = "0";
+  document.body.appendChild(host);
+
+  try {
+    renderQrCode(host, value, size);
+    return canvasToPaddedDataUrl(readQrCanvas(host), QR_EXPORT_PADDING);
+  } finally {
+    host.remove();
+  }
 }
 
 export function downloadDataUrl(dataUrl: string, filename: string): void {
