@@ -6,6 +6,7 @@ describe("UPI ID validation", () => {
   it("accepts standard VPA format", () => {
     expect(isValidUpiId("merchant@oksbi")).toBe(true);
     expect(isValidUpiId("priya-stores.1@okaxis")).toBe(true);
+    expect(isValidUpiId("9656088266@ybl")).toBe(true);
   });
 
   it("rejects invalid identifiers", () => {

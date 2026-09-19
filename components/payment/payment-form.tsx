@@ -25,12 +25,16 @@ import {
   type PaymentPlan,
 } from "@/lib/payments/create-payment-plan";
 import {
+  generateBlockedReason,
+  isGenerateButtonEnabled,
+  mergeAutofilledValues,
+} from "@/lib/payments/generate-readiness";
+import {
   paymentFormSchema,
   type PaymentFormValues,
   type PaymentStructure,
 } from "@/lib/payments/payment-form-schema";
 import { isFullyAllocated } from "@/lib/payments/validate-payment-plan";
-import { isValidUpiId } from "@/lib/upi/validate-upi-id";
 
 export const PAYMENT_DETAILS_FORM_ID = "payment-details-form";
 
@@ -186,14 +190,18 @@ export function PaymentForm({
       preview.remainingPaise === 0 &&
       preview.amountsPaise.length > 0);
 
-  const canGenerate =
-    (merchantName ?? "").trim().length >= 2 &&
-    isValidUpiId(upiId ?? "") &&
-    totalPaise > 0 &&
-    (reference ?? "").trim().length >= 1 &&
-    customValid &&
-    autoValid &&
-    !isSubmitting;
+  const readiness = {
+    merchantName: merchantName ?? "",
+    upiId: upiId ?? "",
+    totalPaise,
+    reference: reference ?? "",
+    structure: structure ?? "auto",
+    customValid,
+    autoValid,
+    isSubmitting,
+  };
+  const blockedReason = generateBlockedReason(readiness);
+  const canGenerate = isGenerateButtonEnabled(readiness);
 
   useEffect(() => {
     onPlanChange?.({
@@ -202,6 +210,16 @@ export function PaymentForm({
       canGenerate,
     });
   }, [preview, maxPaymentPaise, canGenerate, onPlanChange]);
+
+  function applyAutofilledValues(formEl: HTMLFormElement) {
+    const patch = mergeAutofilledValues(form.getValues(), new FormData(formEl));
+    for (const [name, value] of Object.entries(patch)) {
+      form.setValue(name as keyof PaymentFormValues, value as never, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }
 
   return (
     <FormProvider {...form}>
@@ -217,14 +235,18 @@ export function PaymentForm({
           <form
             id={PAYMENT_DETAILS_FORM_ID}
             className="space-y-5"
-            onSubmit={form.handleSubmit(
-              (values) => void onGenerate(values),
-              () => {
-                toast.error(
-                  "Complete the payment details to generate QR codes.",
-                );
-              },
-            )}
+            onSubmit={(event) => {
+              applyAutofilledValues(event.currentTarget);
+              void form.handleSubmit(
+                (values) => void onGenerate(values),
+                () => {
+                  toast.error(
+                    blockedReason ??
+                      "Complete the payment details to generate QR codes.",
+                  );
+                },
+              )(event);
+            }}
             noValidate
           >
             <Field
@@ -240,7 +262,7 @@ export function PaymentForm({
                     id="merchantName"
                     className="h-11"
                     autoComplete="organization"
-                    placeholder="Priya Stores"
+                    placeholder="e.g. Priya Stores"
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
@@ -265,7 +287,7 @@ export function PaymentForm({
                     className="h-11"
                     autoComplete="off"
                     inputMode="email"
-                    placeholder="merchant@oksbi"
+                    placeholder="e.g. merchant@oksbi"
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
@@ -293,7 +315,7 @@ export function PaymentForm({
                       id="totalAmountRupees"
                       className="h-11 pl-7"
                       inputMode="decimal"
-                      placeholder="8500"
+                      placeholder="e.g. 8500"
                       value={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
@@ -317,7 +339,8 @@ export function PaymentForm({
                   <Input
                     id="reference"
                     className="h-11"
-                    placeholder="INV-2048"
+                    placeholder="e.g. INV-2048"
+                    autoComplete="off"
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
@@ -335,7 +358,7 @@ export function PaymentForm({
                 render={({ field }) => (
                   <Textarea
                     id="note"
-                    placeholder="Workshop deposit"
+                    placeholder="e.g. Workshop deposit"
                     maxLength={50}
                     value={field.value}
                     onChange={field.onChange}
@@ -477,6 +500,7 @@ export function PaymentForm({
               className="h-11 w-full disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
               disabled={!canGenerate}
               aria-disabled={!canGenerate}
+              aria-describedby={blockedReason ? "generate-blocked-reason" : undefined}
             >
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -487,11 +511,12 @@ export function PaymentForm({
                 ? generateQrCodesLabel(preview.amountsPaise.length)
                 : "Generate QR Codes"}
             </Button>
-            {!canGenerate ? (
-              <p className="text-center text-xs text-muted-foreground">
-                {structure === "custom" && !customValid
-                  ? "Allocate the full amount (remaining ₹0.00) before generating QR codes."
-                  : "Enter a merchant name, valid UPI ID, amount, and reference to generate QR codes."}
+            {blockedReason ? (
+              <p
+                id="generate-blocked-reason"
+                className="text-center text-xs text-muted-foreground"
+              >
+                {blockedReason}
               </p>
             ) : null}
             <p className="text-center text-xs leading-5 text-muted-foreground">
