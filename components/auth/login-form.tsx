@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 
 type AuthState = { error: string | null; message?: string } | null;
 
-export function LoginForm() {
+export function LoginForm({ next = "/dashboard" }: { next?: string }) {
   const [passwordState, passwordAction, passwordPending] = useActionState(
     async (_state: AuthState, formData: FormData) =>
       signInWithPassword(formData),
@@ -22,6 +22,7 @@ export function LoginForm() {
   return (
     <div className="space-y-8">
       <form action={passwordAction} className="space-y-4">
+        <input type="hidden" name="next" value={next} />
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -64,6 +65,7 @@ export function LoginForm() {
       </div>
 
       <form action={magicAction} className="space-y-4">
+        <input type="hidden" name="next" value={next} />
         <div className="space-y-2">
           <Label htmlFor="magic-email">Email</Label>
           <Input

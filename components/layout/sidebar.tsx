@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Settings,
   Shield,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const items = [
   { href: "/calculator", label: "Planner", icon: Calculator },
   { href: "/compliance", label: "Compliance", icon: Shield },
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/setup", label: "Setup", icon: Wrench },
 ];
 
 export function Sidebar() {

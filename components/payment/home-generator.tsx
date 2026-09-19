@@ -16,7 +16,7 @@ import { formatINR, rupeesToPaise } from "@/lib/money";
 import { createPaymentPlan } from "@/lib/payments/create-payment-plan";
 import { validatePaymentPlan } from "@/lib/payments/validate-payment-plan";
 import { buildInvoice } from "@/lib/invoices/build-invoice";
-import { saveLocalInvoice } from "@/lib/storage/local-invoices";
+import { saveLocalInvoice, removeLocalInvoice } from "@/lib/storage/local-invoices";
 import { withUpdatedPaymentStatus } from "@/lib/payments/invoice-status";
 import { createManualPaymentVerificationProvider } from "@/lib/payments/verification";
 import { dataUrlToBlob, downloadDataUrl, qrDataUrl } from "@/lib/qr/download";
@@ -106,6 +106,9 @@ export function HomeGenerator() {
         return;
       }
       toast.success("Invoice saved to your account.");
+      removeLocalInvoice(invoice.id);
+      setInvoice({ ...invoice, source: "cloud", userId: invoice.userId });
+      router.refresh();
     } finally {
       setBusy(false);
     }

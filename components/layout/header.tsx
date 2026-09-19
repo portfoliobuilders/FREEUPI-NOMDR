@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { AuthNav } from "@/components/layout/auth-nav";
 
 const links = [
   { href: "/", label: "Create" },
@@ -55,15 +56,7 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link
-            href="/login"
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            Log in
-          </Link>
-          <Link href="/signup" className={buttonVariants({ size: "sm" })}>
-            Create account
-          </Link>
+          <AuthNav />
         </div>
 
         <Sheet>
@@ -87,12 +80,7 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
-              <Link href="/login" className="rounded-lg px-2 py-2 text-sm hover:bg-muted">
-                Log in
-              </Link>
-              <Link href="/signup" className="rounded-lg px-2 py-2 text-sm hover:bg-muted">
-                Create account
-              </Link>
+              <AuthNav compact />
             </nav>
           </SheetContent>
         </Sheet>

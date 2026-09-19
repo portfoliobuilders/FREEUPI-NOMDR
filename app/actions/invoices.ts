@@ -1,11 +1,16 @@
 "use server";
 
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { invoiceWriteRateLimiter } from "@/lib/security/rate-limit";
 import { mapInvoice, type InvoiceRow } from "@/lib/invoices/mappers";
 import { deriveInvoiceStatus } from "@/lib/payments/invoice-status";
 import { createManualPaymentVerificationProvider } from "@/lib/payments/verification";
+import {
+  isMissingSchemaError,
+  publicWriteErrorMessage,
+} from "@/lib/supabase/errors";
 import type { Invoice, PaymentStatus } from "@/types";
 
 const verifier = createManualPaymentVerificationProvider();
@@ -35,10 +40,22 @@ async function enforceWriteLimit() {
   }
 }
 
-export async function listCloudInvoices(): Promise<Invoice[]> {
+function refreshInvoicePaths(invoiceId?: string) {
+  revalidatePath("/dashboard");
+  if (invoiceId) {
+    revalidatePath(`/invoice/${invoiceId}`);
+    revalidatePath(`/print/${invoiceId}`);
+  }
+}
+
+export async function getCloudDashboard(): Promise<{
+  invoices: Invoice[];
+  warning: string | null;
+  schemaReady: boolean;
+}> {
   const { supabase, user } = await requireUser();
   if (!supabase || !user) {
-    return [];
+    return { invoices: [], warning: null, schemaReady: true };
   }
 
   const { data, error } = await supabase
@@ -47,11 +64,24 @@ export async function listCloudInvoices(): Promise<Invoice[]> {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (error || !data) {
-    return [];
+  if (error) {
+    return {
+      invoices: [],
+      warning: publicWriteErrorMessage(error, "Could not load invoices."),
+      schemaReady: !isMissingSchemaError(error),
+    };
   }
 
-  return data.map((row) => mapInvoice(row as InvoiceRow));
+  return {
+    invoices: (data ?? []).map((row) => mapInvoice(row as InvoiceRow)),
+    warning: null,
+    schemaReady: true,
+  };
+}
+
+export async function listCloudInvoices(): Promise<Invoice[]> {
+  const { invoices } = await getCloudDashboard();
+  return invoices;
 }
 
 export async function getOwnedInvoice(id: string): Promise<Invoice | null> {
@@ -93,7 +123,13 @@ export async function saveInvoiceToAccount(invoice: Invoice) {
   });
 
   if (invoiceError) {
-    return { ok: false as const, message: "Could not save the invoice." };
+    return {
+      ok: false as const,
+      message: publicWriteErrorMessage(
+        invoiceError,
+        "Could not save the invoice.",
+      ),
+    };
   }
 
   const { error: deleteError } = await supabase
@@ -102,7 +138,13 @@ export async function saveInvoiceToAccount(invoice: Invoice) {
     .eq("invoice_id", invoice.id);
 
   if (deleteError) {
-    return { ok: false as const, message: "Could not update payment requests." };
+    return {
+      ok: false as const,
+      message: publicWriteErrorMessage(
+        deleteError,
+        "Could not update payment requests.",
+      ),
+    };
   }
 
   const { error: paymentError } = await supabase.from("payment_requests").insert(
@@ -119,9 +161,16 @@ export async function saveInvoiceToAccount(invoice: Invoice) {
   );
 
   if (paymentError) {
-    return { ok: false as const, message: "Could not save payment requests." };
+    return {
+      ok: false as const,
+      message: publicWriteErrorMessage(
+        paymentError,
+        "Could not save payment requests.",
+      ),
+    };
   }
 
+  refreshInvoicePaths(invoice.id);
   return { ok: true as const };
 }
 
@@ -159,7 +208,10 @@ export async function updateCloudPaymentStatus(input: {
     .eq("invoice_id", input.invoiceId);
 
   if (error) {
-    return { ok: false as const, message: "Could not update payment status." };
+    return {
+      ok: false as const,
+      message: publicWriteErrorMessage(error, "Could not update payment status."),
+    };
   }
 
   const nextPayments = invoice.payments.map((payment) =>
@@ -183,6 +235,7 @@ export async function updateCloudPaymentStatus(input: {
     .eq("id", invoice.id)
     .eq("user_id", user.id);
 
+  refreshInvoicePaths(invoice.id);
   return { ok: true as const, notes: result.notes };
 }
 
@@ -200,7 +253,11 @@ export async function archiveCloudInvoice(invoiceId: string) {
     .eq("user_id", user.id);
 
   if (error) {
-    return { ok: false as const, message: "Could not archive invoice." };
+    return {
+      ok: false as const,
+      message: publicWriteErrorMessage(error, "Could not archive invoice."),
+    };
   }
+  refreshInvoicePaths(invoiceId);
   return { ok: true as const };
 }

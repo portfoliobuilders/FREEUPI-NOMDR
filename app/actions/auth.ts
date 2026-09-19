@@ -8,11 +8,18 @@ import { authRateLimiter } from "@/lib/security/rate-limit";
 import { getPublicEnv } from "@/lib/env";
 import { sanitizePaymentText } from "@/lib/security/sanitize";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi/validate-upi-id";
+import { safeNextPath } from "@/lib/auth/safe-next";
+import { publicWriteErrorMessage } from "@/lib/supabase/errors";
 
 const emailSchema = z.string().trim().email("Enter a valid email address.");
 const passwordSchema = z
   .string()
   .min(8, "Password must be at least 8 characters.");
+
+function authCallbackUrl(next?: string | null) {
+  const path = safeNextPath(next);
+  return `${getPublicEnv().siteUrl}/auth/callback?next=${encodeURIComponent(path)}`;
+}
 
 async function limitAuth(action: string) {
   const headerList = await headers();
@@ -50,7 +57,7 @@ export async function signInWithPassword(formData: FormData) {
     return { error: "Could not sign in with those details." };
   }
 
-  redirect("/dashboard");
+  redirect(safeNextPath(String(formData.get("next") ?? "")));
 }
 
 export async function signUpWithPassword(formData: FormData) {
@@ -65,6 +72,11 @@ export async function signUpWithPassword(formData: FormData) {
     return { error: "Enter a valid email and a password of at least 8 characters." };
   }
 
+  const businessName = sanitizePaymentText(
+    String(formData.get("businessName") ?? ""),
+    80,
+  );
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
     return { error: "Authentication is not configured yet." };
@@ -74,7 +86,10 @@ export async function signUpWithPassword(formData: FormData) {
     email: email.data,
     password: password.data,
     options: {
-      emailRedirectTo: `${getPublicEnv().siteUrl}/auth/callback`,
+      emailRedirectTo: authCallbackUrl("/dashboard"),
+      data: {
+        business_name: businessName,
+      },
     },
   });
   if (error) {
@@ -106,7 +121,7 @@ export async function sendMagicLink(formData: FormData) {
   const { error } = await supabase.auth.signInWithOtp({
     email: email.data,
     options: {
-      emailRedirectTo: `${getPublicEnv().siteUrl}/auth/callback`,
+      emailRedirectTo: authCallbackUrl(String(formData.get("next") ?? "")),
     },
   });
   if (error) {
@@ -155,7 +170,9 @@ export async function updateProfile(formData: FormData) {
     { onConflict: "user_id" },
   );
   if (error) {
-    return { error: "Could not save settings." };
+    return {
+      error: publicWriteErrorMessage(error, "Could not save settings."),
+    };
   }
   return { error: null, message: "Settings saved." };
 }
