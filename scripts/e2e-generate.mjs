@@ -22,14 +22,14 @@ try {
   await page.getByLabel("Total Amount").fill("8500");
   await page.getByLabel("Payment Note").fill("Workshop deposit");
   await page.getByRole("radio", { name: /Auto Split/i }).click();
-  await page.getByLabel("Maximum amount per payment").fill("1999");
+  await page.getByRole("textbox", { name: "Maximum amount per payment" }).fill("1999");
   await page
     .getByText("Enter an invoice / payment reference to generate QR codes.")
     .waitFor();
   const generateButton = page.getByRole("button", { name: /Generate 5 QR Codes/i }).first();
   await generateButton.click();
   await page.getByText("Invoice or payment reference is required.").waitFor();
-  await page.getByLabel("Invoice / Payment Reference").fill("INV-2048");
+  await page.getByRole("textbox", { name: "Invoice / Payment Reference" }).fill("INV-2048");
   await generateButton.click();
   await page.getByText("₹1,999.00").first().waitFor();
   await page.getByText("₹504.00").first().waitFor();

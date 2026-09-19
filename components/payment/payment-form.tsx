@@ -542,7 +542,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="scroll-mt-24 space-y-2">
       <Label htmlFor={id}>{label}</Label>
       {children}
       {error ? (
