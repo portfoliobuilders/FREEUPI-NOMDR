@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, QrCode } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,6 +35,7 @@ import {
   type PaymentStructure,
 } from "@/lib/payments/payment-form-schema";
 import { isFullyAllocated } from "@/lib/payments/validate-payment-plan";
+import { isValidUpiId } from "@/lib/upi/validate-upi-id";
 
 const STRUCTURE_LABELS: Record<PaymentStructure, string> = {
   single: "Single Payment",
@@ -71,6 +73,9 @@ export function PaymentForm({
     },
   });
 
+  const merchantName = useWatch({ control: form.control, name: "merchantName" });
+  const upiId = useWatch({ control: form.control, name: "upiId" });
+  const reference = useWatch({ control: form.control, name: "reference" });
   const structure = useWatch({ control: form.control, name: "structure" });
   const totalAmountRupees = useWatch({
     control: form.control,
@@ -85,7 +90,7 @@ export function PaymentForm({
     name: "customPayments",
   });
 
-  const totalPaise = parsePaise(totalAmountRupees);
+  const totalPaise = parsePaise(totalAmountRupees ?? "");
   const preview = useMemo(() => {
     try {
       if (structure === "equal") {
@@ -130,7 +135,13 @@ export function PaymentForm({
     );
 
   const canGenerate =
-    form.formState.isValid && customValid && totalPaise > 0 && !isSubmitting;
+    (merchantName ?? "").trim().length >= 2 &&
+    isValidUpiId(upiId ?? "") &&
+    totalPaise > 0 &&
+    (reference ?? "").trim().length >= 1 &&
+    customValid &&
+    (structure !== "equal" || Number(instalmentCount) >= 2) &&
+    !isSubmitting;
 
   return (
     <FormProvider {...form}>
@@ -145,7 +156,14 @@ export function PaymentForm({
         <CardContent>
           <form
             className="space-y-5"
-            onSubmit={form.handleSubmit((values) => void onGenerate(values))}
+            onSubmit={form.handleSubmit(
+              (values) => void onGenerate(values),
+              () => {
+                toast.error(
+                  "Complete the payment details to generate QR codes.",
+                );
+              },
+            )}
             noValidate
           >
             <Field
@@ -153,12 +171,22 @@ export function PaymentForm({
               label="Merchant / Account Holder Name"
               error={form.formState.errors.merchantName?.message}
             >
-              <Input
-                id="merchantName"
-                className="h-11"
-                autoComplete="organization"
-                placeholder="Priya Stores"
-                {...form.register("merchantName")}
+              <Controller
+                control={form.control}
+                name="merchantName"
+                render={({ field }) => (
+                  <Input
+                    id="merchantName"
+                    className="h-11"
+                    autoComplete="organization"
+                    placeholder="Priya Stores"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                )}
               />
             </Field>
 
@@ -167,13 +195,23 @@ export function PaymentForm({
               label="UPI ID"
               error={form.formState.errors.upiId?.message}
             >
-              <Input
-                id="upiId"
-                className="h-11"
-                autoComplete="off"
-                inputMode="email"
-                placeholder="merchant@oksbi"
-                {...form.register("upiId")}
+              <Controller
+                control={form.control}
+                name="upiId"
+                render={({ field }) => (
+                  <Input
+                    id="upiId"
+                    className="h-11"
+                    autoComplete="off"
+                    inputMode="email"
+                    placeholder="merchant@oksbi"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                )}
               />
             </Field>
 
@@ -186,12 +224,22 @@ export function PaymentForm({
                 <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
                   ₹
                 </span>
-                <Input
-                  id="totalAmountRupees"
-                  className="h-11 pl-7"
-                  inputMode="decimal"
-                  placeholder="8500.00"
-                  {...form.register("totalAmountRupees")}
+                <Controller
+                  control={form.control}
+                  name="totalAmountRupees"
+                  render={({ field }) => (
+                    <Input
+                      id="totalAmountRupees"
+                      className="h-11 pl-7"
+                      inputMode="decimal"
+                      placeholder="8500.00"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    />
+                  )}
                 />
               </div>
             </Field>
@@ -201,20 +249,40 @@ export function PaymentForm({
               label="Invoice / Payment Reference"
               error={form.formState.errors.reference?.message}
             >
-              <Input
-                id="reference"
-                className="h-11"
-                placeholder="INV-2048"
-                {...form.register("reference")}
+              <Controller
+                control={form.control}
+                name="reference"
+                render={({ field }) => (
+                  <Input
+                    id="reference"
+                    className="h-11"
+                    placeholder="INV-2048"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                )}
               />
             </Field>
 
             <Field id="note" label="Payment Note">
-              <Textarea
-                id="note"
-                placeholder="Workshop deposit"
-                maxLength={50}
-                {...form.register("note")}
+              <Controller
+                control={form.control}
+                name="note"
+                render={({ field }) => (
+                  <Textarea
+                    id="note"
+                    placeholder="Workshop deposit"
+                    maxLength={50}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                )}
               />
             </Field>
 
@@ -237,7 +305,10 @@ export function PaymentForm({
                         {STRUCTURE_LABELS[field.value]}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="w-[var(--anchor-width)]" alignItemWithTrigger={false}>
+                    <SelectContent
+                      className="w-[var(--anchor-width)]"
+                      alignItemWithTrigger={false}
+                    >
                       <SelectItem value="single">Single Payment</SelectItem>
                       <SelectItem value="equal">Equal Instalments</SelectItem>
                       <SelectItem value="custom">Custom Payments</SelectItem>
@@ -254,13 +325,29 @@ export function PaymentForm({
                   label="Number of instalments"
                   error={form.formState.errors.instalmentCount?.message}
                 >
-                  <Input
-                    id="instalmentCount"
-                    className="h-11"
-                    type="number"
-                    min={2}
-                    max={48}
-                    {...form.register("instalmentCount")}
+                  <Controller
+                    control={form.control}
+                    name="instalmentCount"
+                    render={({ field }) => (
+                      <Input
+                        id="instalmentCount"
+                        className="h-11"
+                        type="number"
+                        min={2}
+                        max={48}
+                        value={field.value ?? ""}
+                        onChange={(event) =>
+                          field.onChange(
+                            event.target.value === ""
+                              ? undefined
+                              : Number(event.target.value),
+                          )
+                        }
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        ref={field.ref}
+                      />
+                    )}
                   />
                 </Field>
                 {preview ? (
@@ -289,8 +376,10 @@ export function PaymentForm({
 
             <Button
               type="submit"
-              className="h-11 w-full"
+              nativeButton
+              className="h-11 w-full disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
               disabled={!canGenerate}
+              aria-disabled={!canGenerate}
             >
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -299,6 +388,12 @@ export function PaymentForm({
               )}
               Generate QR Codes
             </Button>
+            {!canGenerate ? (
+              <p className="text-center text-xs text-muted-foreground">
+                Enter a merchant name, valid UPI ID, amount, and reference to
+                generate QR codes.
+              </p>
+            ) : null}
             <p className="text-center text-xs leading-5 text-muted-foreground">
               Your payment information is processed securely. FREEUPI never asks
               for your UPI PIN or OTP.

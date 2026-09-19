@@ -1,6 +1,6 @@
 "use client";
 
-import { useFieldArray, useFormContext } from "react-hook-form";
+import { Controller, useFieldArray, useFormContext } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ export function PaymentPlanEditor({
 }: {
   totalAmountPaise: number;
 }) {
-  const { control, register, watch } = useFormContext<PaymentFormValues>();
+  const { control, watch } = useFormContext<PaymentFormValues>();
   const { fields, append, remove } = useFieldArray({
     control,
     name: "customPayments",
@@ -54,13 +54,23 @@ export function PaymentPlanEditor({
                 <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
                   ₹
                 </span>
-                <Input
-                  id={`custom-amount-${index}`}
-                  inputMode="decimal"
-                  className="h-11 pl-7"
-                  placeholder="0.00"
-                  aria-label={`Payment ${index + 1} amount`}
-                  {...register(`customPayments.${index}.amount`)}
+                <Controller
+                  control={control}
+                  name={`customPayments.${index}.amount`}
+                  render={({ field: amountField }) => (
+                    <Input
+                      id={`custom-amount-${index}`}
+                      inputMode="decimal"
+                      className="h-11 pl-7"
+                      placeholder="0.00"
+                      aria-label={`Payment ${index + 1} amount`}
+                      value={amountField.value}
+                      onChange={amountField.onChange}
+                      onBlur={amountField.onBlur}
+                      name={amountField.name}
+                      ref={amountField.ref}
+                    />
+                  )}
                 />
               </div>
             </div>
