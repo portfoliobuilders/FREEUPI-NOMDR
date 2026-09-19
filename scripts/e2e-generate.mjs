@@ -1,5 +1,8 @@
 import { chromium } from "playwright-core";
 
+const port = process.env.PORT || "3000";
+const origin = `http://127.0.0.1:${port}`;
+
 const browser = await chromium.launch({
   executablePath: "/usr/local/bin/google-chrome",
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
@@ -9,7 +12,11 @@ const page = await browser.newPage();
 page.setDefaultTimeout(15000);
 
 try {
-  await page.goto("http://127.0.0.1:3000/", { waitUntil: "networkidle" });
+  await page.goto(`${origin}/setup`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Connect FREEUPI to Supabase" }).waitFor();
+  await page.getByText("Invoice tables exist on the hosted database").waitFor();
+
+  await page.goto(`${origin}/`, { waitUntil: "networkidle" });
   await page.getByLabel("Merchant / Account Holder Name").fill("Priya Stores");
   await page.getByLabel("UPI ID").fill("merchant@oksbi");
   await page.getByLabel("Total Amount").fill("10000");
@@ -23,11 +30,13 @@ try {
   await page.getByText("Payment link copied").waitFor();
   await page.getByRole("button", { name: "More payment actions" }).first().click();
   await page.getByText("Mark as Paid").click();
-  await page.getByText("Payment marked as paid").waitFor();
   await page.getByText("Manually marked as paid").first().waitFor();
-  await page.getByRole("link", { name: "View invoice" }).click();
-  await page.getByRole("heading", { name: "INV-2048" }).waitFor();
-  console.log(JSON.stringify({ ok: true }));
+  await page.getByRole("button", { name: "Save invoice" }).click();
+  await Promise.race([
+    page.getByText("Sign in to save invoices.").waitFor(),
+    page.waitForURL(/\/login/),
+  ]);
+  console.log(JSON.stringify({ ok: true, origin }));
 } catch (error) {
   console.error("E2E_FAIL", error instanceof Error ? error.message : error);
   await page.screenshot({ path: "/tmp/freeupi-e2e-fail.png", fullPage: true });
