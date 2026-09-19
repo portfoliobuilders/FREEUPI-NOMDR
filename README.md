@@ -46,7 +46,7 @@ Money is stored and calculated in **paise**. UPI deep links use rupee strings wi
 - React Hook Form + Zod
 - Supabase Auth + PostgreSQL
 - Vercel-ready deployment
-- qrcode / qrcode.react for QR rendering
+- QR rendering via the qrcodejs engine used by [kacf/QR-Generator](https://github.com/kacf/QR-Generator)
 
 ## Quick start
 
