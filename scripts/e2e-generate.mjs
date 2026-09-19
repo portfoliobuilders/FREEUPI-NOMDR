@@ -22,8 +22,7 @@ try {
   await page.getByLabel("Total Amount").fill("10000");
   await page.getByLabel("Invoice / Payment Reference").fill("INV-2048");
   await page.getByLabel("Payment Note").fill("Workshop deposit");
-  await page.getByLabel("Payment Structure").click();
-  await page.getByRole("option", { name: "Equal Instalments" }).click();
+  await page.getByRole("radio", { name: /Equal Split/i }).click();
   await page.getByRole("button", { name: "Generate QR Codes" }).click();
   await page.getByText("₹2,500.00").first().waitFor();
   await page.getByRole("button", { name: "Copy Payment Link" }).first().click();

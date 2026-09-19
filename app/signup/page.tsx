@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SignupForm } from "@/components/auth/signup-form";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Create account",
 };
 
-export default function SignupPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SignupPage() {
+  const supabase = await createSupabaseServerClient();
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      redirect("/dashboard");
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-md px-4 py-16">
       <div className="rounded-2xl border border-border bg-white p-6">

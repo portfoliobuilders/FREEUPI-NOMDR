@@ -15,14 +15,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { PaymentPlanEditor } from "@/components/payment/payment-plan-editor";
 import { formatINR, rupeesToPaise } from "@/lib/money";
 import {
@@ -37,11 +31,27 @@ import {
 import { isFullyAllocated } from "@/lib/payments/validate-payment-plan";
 import { isValidUpiId } from "@/lib/upi/validate-upi-id";
 
-const STRUCTURE_LABELS: Record<PaymentStructure, string> = {
-  single: "Single Payment",
-  equal: "Equal Instalments",
-  custom: "Custom Payments",
-};
+const STRUCTURE_OPTIONS: {
+  value: PaymentStructure;
+  title: string;
+  description: string;
+}[] = [
+  {
+    value: "single",
+    title: "Single Payment",
+    description: "One QR for the full invoice amount.",
+  },
+  {
+    value: "equal",
+    title: "Equal Split",
+    description: "Divide evenly. Any leftover paise go on the last payment.",
+  },
+  {
+    value: "custom",
+    title: "Custom Split",
+    description: "Enter each instalment. The parts must add up to the total.",
+  },
+];
 
 function parsePaise(value: string): number {
   try {
@@ -69,7 +79,7 @@ export function PaymentForm({
       note: "",
       structure: "single",
       instalmentCount: 4,
-      customPayments: [{ amount: "" }],
+      customPayments: [{ amount: "" }, { amount: "" }],
     },
   });
 
@@ -286,37 +296,52 @@ export function PaymentForm({
               />
             </Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="structure">Payment Structure</Label>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Payment Structure</legend>
               <Controller
                 control={form.control}
                 name="structure"
                 render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={(value) => {
-                      if (value) {
-                        field.onChange(value);
-                      }
-                    }}
+                  <div
+                    role="radiogroup"
+                    aria-label="Payment Structure"
+                    className="grid gap-2"
                   >
-                    <SelectTrigger id="structure" className="h-11 w-full">
-                      <SelectValue>
-                        {STRUCTURE_LABELS[field.value]}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent
-                      className="w-[var(--anchor-width)]"
-                      alignItemWithTrigger={false}
-                    >
-                      <SelectItem value="single">Single Payment</SelectItem>
-                      <SelectItem value="equal">Equal Instalments</SelectItem>
-                      <SelectItem value="custom">Custom Payments</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {STRUCTURE_OPTIONS.map((option) => {
+                      const selected = field.value === option.value;
+                      return (
+                        <label
+                          key={option.value}
+                          className={cn(
+                            "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
+                            selected
+                              ? "border-primary bg-accent"
+                              : "border-border bg-white hover:bg-muted/40",
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name={field.name}
+                            value={option.value}
+                            checked={selected}
+                            onChange={() => field.onChange(option.value)}
+                            className="mt-1 size-4 accent-primary"
+                          />
+                          <span>
+                            <span className="block text-sm font-medium">
+                              {option.title}
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                              {option.description}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 )}
               />
-            </div>
+            </fieldset>
 
             {structure === "equal" ? (
               <div className="space-y-3">
@@ -390,8 +415,9 @@ export function PaymentForm({
             </Button>
             {!canGenerate ? (
               <p className="text-center text-xs text-muted-foreground">
-                Enter a merchant name, valid UPI ID, amount, and reference to
-                generate QR codes.
+                {structure === "custom" && !customValid
+                  ? "Allocate the full amount (remaining ₹0.00) before generating QR codes."
+                  : "Enter a merchant name, valid UPI ID, amount, and reference to generate QR codes."}
               </p>
             ) : null}
             <p className="text-center text-xs leading-5 text-muted-foreground">

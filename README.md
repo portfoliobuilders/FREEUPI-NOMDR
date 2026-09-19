@@ -16,7 +16,7 @@ Place product captures in `docs/screenshots/` after a local run:
 ## Features
 
 - Guest QR generation with local drafts (no account required)
-- Single payment, equal instalments, and custom payment plans
+- Single payment, equal split, and custom payment plans
 - Integer paise math (no floating-point money)
 - Standard UPI URI + high-resolution QR download and print
 - Manual payment status with a clear “Manually marked as paid” label
@@ -66,7 +66,7 @@ Open [http://localhost:3000](http://localhost:3000). QR generation works without
 npm install
 npm run test
 npm run lint
-npx tsc --noEmit
+npm run typecheck
 npm run build
 ```
 
@@ -74,22 +74,39 @@ npm run build
 
 This repo is wired to project `qjwatcktobybdmdwgymi`.
 
-1. Copy `.env.example` to `.env.local`.
-2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` still works).
-3. Keep `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` server-only. Never prefix them with `NEXT_PUBLIC_`.
-4. Enable Email and Magic Link in Authentication.
-5. Set Site URL and redirect URLs to `{NEXT_PUBLIC_SITE_URL}/auth/callback`.
-6. Apply the database schema (tables are not created until this step).
+### 1. Copy API keys
 
-Easiest path for schema + auth URLs: open `/setup` in the app. It checks the hosted project, copies `supabase/migrations/0001_init.sql`, and links to the SQL editor and auth URL settings.
+In Supabase: **Project Settings → API**.
 
-Dashboard shortcuts:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://qjwatcktobybdmdwgymi.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_OR_PUBLISHABLE_KEY
+```
 
-- SQL editor: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/sql/new
-- Auth URL config: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/auth/url-configuration
-- API keys: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/settings/api-keys
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` also works. Never put `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY` in a client component or a `NEXT_PUBLIC_*` variable.
 
-CLI (from this repo):
+### 2. Auth URL configuration
+
+In Supabase: **Authentication → URL Configuration**.
+
+Site URL:
+
+```text
+https://freeupinomdr.vercel.app
+```
+
+Redirect URLs (add all of these):
+
+```text
+https://freeupinomdr.vercel.app/auth/callback
+http://localhost:3000/auth/callback
+```
+
+Enable Email and Magic Link providers.
+
+### 3. Database
+
+Run `supabase/migrations/0001_init.sql` in the SQL editor, or:
 
 ```bash
 npx supabase login
@@ -97,16 +114,26 @@ npx supabase link --project-ref qjwatcktobybdmdwgymi
 npm run schema:push
 ```
 
-`npm run schema:push` uses `SUPABASE_ACCESS_TOKEN` or `DATABASE_URL`. GitHub Actions workflow **Apply Supabase schema** does the same when the `SUPABASE_ACCESS_TOKEN` repository secret is set.
+The migration creates `profiles`, `invoices`, and `payment_requests` with Row Level Security so users can only access their own rows.
 
-Cursor MCP is configured in `.cursor/mcp.json` for this project ref. If the agent cannot see the project, add that Cursor/Supabase account as a project member, then run `agent mcp login supabase`.
+Easiest in-app path: open `/setup`. It copies the SQL and links to the SQL editor and auth URL settings.
 
-Health check: `GET /api/health` reports whether Auth is reachable and whether the invoice tables exist.
+Dashboard shortcuts:
+
+- SQL editor: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/sql/new
+- Auth URL config: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/auth/url-configuration
+- API keys: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/settings/api-keys
+
+GitHub Actions workflow **Apply Supabase schema** does the same when the `SUPABASE_ACCESS_TOKEN` repository secret is set.
+
+Health check: `GET /api/health` reports whether Auth is reachable and whether the invoice tables exist. If `supabaseConfigured` is `false`, the Vercel environment variables below are missing or invalid.
 
 ## Environment setup
 
+Local `.env.local`:
+
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://qjwatcktobybdmdwgymi.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SECRET_KEY=
@@ -114,26 +141,39 @@ SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-See `.env.example`.
+See `.env.example`. Restart `npm run dev` after changing env files.
 
-## Database setup
+## Vercel setup
 
-Run `supabase/migrations/0001_init.sql` in the SQL editor, or `npx supabase db push` after linking.
+If signup shows that accounts are unavailable, the deployment does not have valid Supabase keys. Production health currently fails until these are set.
 
-The migration creates:
+1. Open the Vercel project → **Settings → Environment Variables**.
+2. Add these for **Production**, **Preview**, and **Development**:
 
-- `profiles`
-- `invoices`
-- `payment_requests`
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://qjwatcktobybdmdwgymi.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_OR_PUBLISHABLE_KEY
+NEXT_PUBLIC_SITE_URL=https://freeupinomdr.vercel.app
+```
 
-It enables Row Level Security so authenticated users can only read and write their own invoices and related payment requests.
+3. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` as `NEXT_PUBLIC_*`. Keep the service role key server-only if you use schema push.
+4. Redeploy after saving variables. `NEXT_PUBLIC_*` values are baked in at build time, so a new deployment is required.
 
-## Vercel deployment
+### Production deployment
 
-1. Import the GitHub repository into Vercel.
-2. Set the environment variables above.
-3. Deploy. The production `NEXT_PUBLIC_SITE_URL` must match your domain.
-4. Add the production callback URL in the Supabase auth settings.
+After env vars are saved:
+
+```bash
+git push origin main
+```
+
+Or from the Vercel CLI:
+
+```bash
+vercel --prod
+```
+
+Confirm `GET https://freeupinomdr.vercel.app/api/health` returns `"supabaseConfigured": true`. Then create an account at `/signup`.
 
 ## Security
 

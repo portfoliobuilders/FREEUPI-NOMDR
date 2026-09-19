@@ -89,13 +89,19 @@ export function PaymentPlanEditor({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-muted/60 p-3 text-sm">
+      <div className="grid grid-cols-3 gap-3 rounded-xl border border-border bg-muted/60 p-3 text-sm">
         <div>
-          <p className="text-muted-foreground">Allocated Amount</p>
+          <p className="text-muted-foreground">Total</p>
+          <p className="mt-1 font-semibold tabular-nums">
+            {formatINR(totalAmountPaise)}
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Allocated</p>
           <p className="mt-1 font-semibold tabular-nums">{formatINR(allocated)}</p>
         </div>
         <div>
-          <p className="text-muted-foreground">Remaining Amount</p>
+          <p className="text-muted-foreground">Remaining</p>
           <p
             className={`mt-1 font-semibold tabular-nums ${
               remaining === 0 ? "text-success" : "text-warning"

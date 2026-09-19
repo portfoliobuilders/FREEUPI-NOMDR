@@ -12,11 +12,14 @@ export const metadata: Metadata = {
   title: "Settings",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function SettingsPage() {
   if (!isSupabaseConfigured()) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-sm text-muted-foreground">
-        Configure Supabase environment variables to enable account settings.
+        Configure Supabase environment variables to enable account settings. QR
+        generation on the home page still works without an account.
       </div>
     );
   }

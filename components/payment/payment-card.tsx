@@ -72,8 +72,10 @@ export function PaymentCard({
       <CardContent className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold">Payment {payment.sequenceNumber}</p>
-            <p className="text-xs text-muted-foreground">of {total}</p>
+            <p className="text-sm font-semibold">
+              Payment {payment.sequenceNumber} of {total}
+            </p>
+            <p className="text-xs text-muted-foreground">{invoice.reference}</p>
           </div>
           <div className="flex items-center gap-2">
             <PaymentStatusBadge status={payment.status} />
@@ -95,6 +97,11 @@ export function PaymentCard({
                     onClick={() => onStatusChange(payment.id, "pending")}
                   >
                     Mark as Pending
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange(payment.id, "expired")}
+                  >
+                    Mark as Expired
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     variant="destructive"

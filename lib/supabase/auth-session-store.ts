@@ -1,6 +1,9 @@
 "use client";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getBrowserClient } from "@/lib/supabase/runtime-config";
+import type { Database } from "@/types/database";
 
 type Listener = () => void;
 
@@ -14,18 +17,7 @@ function notify() {
   }
 }
 
-function attach() {
-  if (attached) {
-    return;
-  }
-  attached = true;
-
-  const supabase = createSupabaseBrowserClient();
-  if (!supabase) {
-    signedIn = false;
-    return;
-  }
-
+function bind(supabase: SupabaseClient<Database>) {
   supabase.auth.onAuthStateChange((_event, session) => {
     signedIn = Boolean(session?.user);
     notify();
@@ -34,6 +26,28 @@ function attach() {
   void supabase.auth.getUser().then(({ data }) => {
     signedIn = Boolean(data.user);
     notify();
+  });
+}
+
+function attach() {
+  if (attached) {
+    return;
+  }
+  attached = true;
+
+  const immediate = createSupabaseBrowserClient();
+  if (immediate) {
+    bind(immediate);
+    return;
+  }
+
+  void getBrowserClient().then((client) => {
+    if (!client) {
+      signedIn = false;
+      notify();
+      return;
+    }
+    bind(client);
   });
 }
 

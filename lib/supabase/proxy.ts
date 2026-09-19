@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getPublicEnv, isSupabaseConfigured } from "@/lib/env";
+import { safeNextPath } from "@/lib/auth/safe-next";
 import type { Database } from "@/types/database";
 
 export async function updateSession(request: NextRequest) {
@@ -43,6 +44,13 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
+  }
+
+  if (user && (path === "/login" || path === "/signup")) {
+    const url = request.nextUrl.clone();
+    url.pathname = safeNextPath(request.nextUrl.searchParams.get("next"));
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
