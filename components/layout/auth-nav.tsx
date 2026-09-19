@@ -1,38 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  getAuthSessionServerSnapshot,
+  getAuthSessionSnapshot,
+  subscribeAuthSession,
+} from "@/lib/supabase/auth-session-store";
 
 export function AuthNav({ compact = false }: { compact?: boolean }) {
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) {
-      setSignedIn(false);
-      return;
-    }
-
-    let cancelled = false;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!cancelled) {
-        setSignedIn(Boolean(data.user));
-      }
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(Boolean(session?.user));
-    });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, []);
+  const signedIn = useSyncExternalStore(
+    subscribeAuthSession,
+    getAuthSessionSnapshot,
+    getAuthSessionServerSnapshot,
+  );
 
   if (signedIn === null && !compact) {
     return <div className="h-8 w-40" aria-hidden />;
