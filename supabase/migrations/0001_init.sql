@@ -70,12 +70,12 @@ $$;
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
 before update on public.profiles
-for each row execute procedure public.set_updated_at();
+for each row execute function public.set_updated_at();
 
 drop trigger if exists invoices_set_updated_at on public.invoices;
 create trigger invoices_set_updated_at
 before update on public.invoices
-for each row execute procedure public.set_updated_at();
+for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -94,72 +94,97 @@ $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
-for each row execute procedure public.handle_new_user();
+for each row execute function public.handle_new_user();
 
 alter table public.profiles enable row level security;
 alter table public.invoices enable row level security;
 alter table public.payment_requests enable row level security;
 
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table public.profiles to authenticated;
+grant select, insert, update, delete on table public.invoices to authenticated;
+grant select, insert, update, delete on table public.payment_requests to authenticated;
+
+drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile"
   on public.profiles for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can insert own profile" on public.profiles;
 create policy "Users can insert own profile"
   on public.profiles for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
   on public.profiles for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can view own invoices" on public.invoices;
 create policy "Users can view own invoices"
   on public.invoices for select
-  using (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can insert own invoices" on public.invoices;
 create policy "Users can insert own invoices"
   on public.invoices for insert
-  with check (auth.uid() = user_id);
+  to authenticated
+  with check ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can update own invoices" on public.invoices;
 create policy "Users can update own invoices"
   on public.invoices for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can delete own invoices" on public.invoices;
 create policy "Users can delete own invoices"
   on public.invoices for delete
-  using (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can view own payment requests" on public.payment_requests;
 create policy "Users can view own payment requests"
   on public.payment_requests for select
+  to authenticated
   using (
     exists (
       select 1
       from public.invoices
       where invoices.id = payment_requests.invoice_id
-        and invoices.user_id = auth.uid()
+        and invoices.user_id = (select auth.uid())
     )
   );
 
+drop policy if exists "Users can insert own payment requests" on public.payment_requests;
 create policy "Users can insert own payment requests"
   on public.payment_requests for insert
+  to authenticated
   with check (
     exists (
       select 1
       from public.invoices
       where invoices.id = payment_requests.invoice_id
-        and invoices.user_id = auth.uid()
+        and invoices.user_id = (select auth.uid())
     )
   );
 
+drop policy if exists "Users can update own payment requests" on public.payment_requests;
 create policy "Users can update own payment requests"
   on public.payment_requests for update
+  to authenticated
   using (
     exists (
       select 1
       from public.invoices
       where invoices.id = payment_requests.invoice_id
-        and invoices.user_id = auth.uid()
+        and invoices.user_id = (select auth.uid())
     )
   )
   with check (
@@ -167,17 +192,19 @@ create policy "Users can update own payment requests"
       select 1
       from public.invoices
       where invoices.id = payment_requests.invoice_id
-        and invoices.user_id = auth.uid()
+        and invoices.user_id = (select auth.uid())
     )
   );
 
+drop policy if exists "Users can delete own payment requests" on public.payment_requests;
 create policy "Users can delete own payment requests"
   on public.payment_requests for delete
+  to authenticated
   using (
     exists (
       select 1
       from public.invoices
       where invoices.id = payment_requests.invoice_id
-        and invoices.user_id = auth.uid()
+        and invoices.user_id = (select auth.uid())
     )
   );

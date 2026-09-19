@@ -71,17 +71,37 @@ npm run build
 
 ## Supabase setup
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Copy the project URL and anon key into `.env.local`.
-3. Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. Never expose it as `NEXT_PUBLIC_*`.
-4. Enable Email and Magic Link providers in Authentication.
-5. Set the site URL and redirect URLs to `{NEXT_PUBLIC_SITE_URL}/auth/callback`.
+This repo is wired to project `qjwatcktobybdmdwgymi`.
+
+1. Copy `.env.example` to `.env.local`.
+2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` still works).
+3. Keep `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` server-only. Never prefix them with `NEXT_PUBLIC_`.
+4. Enable Email and Magic Link in Authentication.
+5. Set Site URL and redirect URLs to `{NEXT_PUBLIC_SITE_URL}/auth/callback`.
+
+Dashboard shortcuts:
+
+- SQL editor: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/sql/new
+- Auth URL config: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/auth/url-configuration
+- API keys: https://supabase.com/dashboard/project/qjwatcktobybdmdwgymi/settings/api-keys
+
+CLI (from this repo):
+
+```bash
+npx supabase login
+npx supabase link --project-ref qjwatcktobybdmdwgymi
+npx supabase db push
+```
+
+Cursor MCP is configured in `.cursor/mcp.json` for this project ref. If the agent cannot see the project, add the Cursor/Supabase account as a project member, then run `agent mcp login supabase`.
 
 ## Environment setup
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SECRET_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
@@ -90,7 +110,7 @@ See `.env.example`.
 
 ## Database setup
 
-Run `supabase/migrations/0001_init.sql` in the Supabase SQL editor (or `supabase db push` if you use the CLI).
+Run `supabase/migrations/0001_init.sql` in the SQL editor, or `npx supabase db push` after linking.
 
 The migration creates:
 
@@ -98,7 +118,7 @@ The migration creates:
 - `invoices`
 - `payment_requests`
 
-It enables Row Level Security so users can only read and write their own invoices and related payment requests.
+It enables Row Level Security so authenticated users can only read and write their own invoices and related payment requests.
 
 ## Vercel deployment
 
